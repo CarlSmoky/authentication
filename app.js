@@ -25,6 +25,22 @@ app.route('/')
 app.route('/login')
   .get((req, res) => {
     res.render("login");
+  })
+
+  .post (async (req, res) => {
+    const email = req.body.username;
+    const password = req.body.password;
+    try {
+      const userByEmail = await User.findOne({email});
+      if (userByEmail.password === password) {
+        res.render("secrets");
+      } else {
+        res.send("wrong password");
+      }
+    }
+    catch (err) {
+      res.send(err);
+    }
   });
 
 app.route('/register')
