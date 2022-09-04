@@ -1,6 +1,7 @@
 import express from 'express';
 import bodyParser from "body-parser";
 import mongoose from 'mongoose';
+import encrypt from 'mongoose-encryption';
 
 const app = express();
 
@@ -39,7 +40,8 @@ app.route('/login')
       }
     }
     catch (err) {
-      res.send(err);
+      console.log(err);
+      res.send("User doesn't exist");
     }
   });
 
