@@ -3,15 +3,35 @@ import bodyParser from "body-parser";
 import mongoose from 'mongoose';
 import encrypt from 'mongoose-encryption';
 import 'dotenv/config';
+//1. Using md5
 // import md5 from 'md5';
-import bcrypt from 'bcrypt';
-const saltRounds = 10;
+
+// 2. Using bcrypt
+// import bcrypt from 'bcrypt';
+// const saltRounds = 10;
+
+//3. Using passport
+import session from 'express-session';
+import passport from 'passport';
+import passportLocalMongoose from 'passport-local-mongoose';
+import { read } from 'fs';
+
 
 const app = express();
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 app.set("view engine", "ejs");
+
+//3. Using passport
+app.use(session({
+  secret: 'keyboard cat',
+  resave: false,
+  saveUninitialized: false
+}))
+
+app.use(passport.initialize());
+app.use(passport.session());
 
 mongoose.connect(`mongodb://localhost:27017/userDB`);
 
@@ -22,9 +42,19 @@ const userSchema = new mongoose.Schema({
 
 const secret = process.env.SECRETKEY;
 
-userSchema.plugin(encrypt, { secret, encryptedFields: ['password'] });
+//Using md5
+// userSchema.plugin(encrypt, { secret, encryptedFields: ['password'] });
+
+//Using passport
+userSchema.plugin(passportLocalMongoose);
 
 const User = mongoose.model("user", userSchema);
+
+//Using passport
+passport.use(User.createStrategy());
+
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
 
 app.route('/')
   .get((req, res) => {
@@ -36,21 +66,49 @@ app.route('/login')
     res.render("login");
   })
 
-  .post(async (req, res) => {
-    const email = req.body.username;
-    const password = req.body.password;
-    try {
-      const userByEmail = await User.findOne({ email });
-      const match = await bcrypt.compare(password, userByEmail.password);
-      // console.log(match);
-      if (match) {
-        res.render("secrets");
+  .post((req, res) => {
+    const user = new User({
+      username: req.body.username,
+      password: req.body.password
+    })
+    console.log("login");
+    req.login(user, err => {
+      if (!err) {
+        passport.authenticate('local', { failureRedirect: '/' }) (req, res, function() {
+          res.redirect('/secrets');
+        })
       } else {
-        res.send("wrong password");
+        res.send(err);
       }
-    }
-    catch (err) {
-      res.send("User doesn't register");
+    })
+
+  })
+
+//Using bcrypt
+// .post(async (req, res) => {
+//   const email = req.body.username;
+//   const password = req.body.password;
+//   try {
+//     const userByEmail = await User.findOne({ email });
+//     const match = await bcrypt.compare(password, userByEmail.password);
+//     // console.log(match);
+//     if (match) {
+//       res.render("secrets");
+//     } else {
+//       res.send("wrong password");
+//     }
+//   }
+//   catch (err) {
+//     res.send("User doesn't register");
+//   }
+// });
+
+app.route('/secrets')
+  .get((req, res) => {
+    if (req.isAuthenticated()) {
+      res.render('secrets');
+    } else {
+      res.redirect('/login');
     }
   });
 
@@ -59,24 +117,54 @@ app.route('/register')
     res.render("register");
   })
 
+  //Using passport
   .post(async (req, res) => {
     try {
-      const hash = await bcrypt.hash(req.body.password, saltRounds);
-
-      const newUser = new User({
-        email: req.body.username,
-        password: hash
-      })
-
-      newUser.save();
-      res.render("secrets");
+      const user = await User.register({ username: req.body.username, active: false }, req.body.password);
+      if (!user) {
+        res.redirect('/register');
+      } else {
+        console.log("here", user);
+        // passport.authenticate('local', { failureRedirect: '/' }) (req, res, function() {
+        //   res.redirect('/secrets');
+        // })
+        let returnedFunc = passport.authenticate('local', { failureRedirect: '/' });
+        // console.log(returnedFunc);
+        returnedFunc(req, res, () =>{
+          res.redirect('/secrets');
+        })
+      }
     }
     catch (err) {
       res.send(err);
     }
-  })
+  });
+//Using bcrypt
+// .post(async (req, res) => {
+//   try {
+//     const hash = await bcrypt.hash(req.body.password, saltRounds);
 
+//     const newUser = new User({
+//       email: req.body.username,
+//       password: hash
+//     })
 
+//     newUser.save();
+//     res.render("secrets");
+//   }
+//   catch (err) {
+//     res.send(err);
+//   }
+// })
+
+app.route('/logout')
+  .get( (req, res) => {
+      req.logout(err => {
+        if(!err) {
+          res.redirect('/');
+        }
+      });
+  });
 
 
 let port = process.env.PORT;
