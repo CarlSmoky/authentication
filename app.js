@@ -14,8 +14,9 @@ import 'dotenv/config';
 import session from 'express-session';
 import passport from 'passport';
 import passportLocalMongoose from 'passport-local-mongoose';
-import { read } from 'fs';
 
+//4. Using passport google auth20
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 
 const app = express();
 
@@ -55,6 +56,19 @@ passport.use(User.createStrategy());
 
 passport.serializeUser(User.serializeUser());
 passport.deserializeUser(User.deserializeUser());
+
+//Using passport google auth20
+passport.use(new GoogleStrategy({
+  clientID: process.env.GOOGLE_CLIENT_ID,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  callbackURL: "http://localhost:3001/auth/google/oauth2"
+},
+function(accessToken, refreshToken, profile, cb) {
+  User.findOrCreate({ googleId: profile.id }, function (err, user) {
+    return cb(err, user);
+  });
+}
+));
 
 app.route('/')
   .get((req, res) => {
