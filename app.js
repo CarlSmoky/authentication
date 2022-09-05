@@ -17,6 +17,7 @@ import passportLocalMongoose from 'passport-local-mongoose';
 
 //4. Using passport google auth20
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
+import findOrCreate from 'mongoose-findorcreate';
 
 const app = express();
 
@@ -48,10 +49,11 @@ const secret = process.env.SECRETKEY;
 
 //Using passport
 userSchema.plugin(passportLocalMongoose);
+userSchema.plugin(findOrCreate);
 
 const User = mongoose.model("user", userSchema);
 
-//Using passport
+//Using passport local authenticate
 passport.use(User.createStrategy());
 
 passport.serializeUser(User.serializeUser());
