@@ -40,7 +40,8 @@ mongoose.connect(`mongodb://localhost:27017/userDB`);
 const userSchema = new mongoose.Schema({
   email: String,
   password: String,
-  googleId: String
+  googleId: String,
+  secret: String
 });
 
 const secret = process.env.SECRETKEY;
@@ -77,9 +78,9 @@ passport.use(new GoogleStrategy({
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
   callbackURL: "http://localhost:3001/auth/google/oauth2"
 },
-  async (accessToken, refreshToken, profile, cb) => {
+ (accessToken, refreshToken, profile, cb) => {
     console.log(profile);
-    await User.findOrCreate({ googleId: profile.id }, (err, user) => {
+    User.findOrCreate({ googleId: profile.id }, (err, user) => {
       console.log(user);
       return cb(err, user);
     });
@@ -96,7 +97,7 @@ app.route('/auth/google')
 
 app.route('/auth/google/oauth2')
   .get(passport.authenticate('google', { failureRedirect: '/login' }),
-     (req, res) => {
+    (req, res) => {
       // Successful authentication, redirect home.
       res.redirect('/secrets');
     });
@@ -146,12 +147,49 @@ app.route('/login')
 
 app.route('/secrets')
   .get((req, res) => {
+    User.find({'secret': {$ne: null}}, (err, foundUsers) => {
+      if (err) {
+        console.log(err);
+      } else {
+        if (foundUsers) {
+          res.render('secrets', {usersWithSecrets: foundUsers});
+        }
+      }
+    });
+
+    // if (req.isAuthenticated()) {
+    //   res.render('secrets');
+    // } else {
+    //   res.redirect('/login');
+    // }
+  });
+
+app.route('/submit')
+  .get((req, res) => {
     if (req.isAuthenticated()) {
-      res.render('secrets');
+      res.render('submit');
     } else {
       res.redirect('/login');
     }
+  })
+
+  .post((req, res) => {
+    const submittedSecret = req.body.secret;
+    User.findById(req.user.id, ((err, userByID) => {
+      if (err) {
+        console.log(err);
+      } else {
+        if (userByID) {
+          userByID.secret = submittedSecret;
+          userByID.save(() => {
+            res.redirect('/secrets');
+          });
+        }
+      }
+    })
+    )
   });
+
 
 app.route('/register')
   .get((req, res) => {
