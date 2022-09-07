@@ -39,7 +39,8 @@ mongoose.connect(`mongodb://localhost:27017/userDB`);
 
 const userSchema = new mongoose.Schema({
   email: String,
-  password: String
+  password: String,
+  googleId: String
 });
 
 const secret = process.env.SECRETKEY;
@@ -52,12 +53,23 @@ userSchema.plugin(passportLocalMongoose);
 userSchema.plugin(findOrCreate);
 
 const User = mongoose.model("user", userSchema);
+mongoose.Promise = Promise;
 
 //Using passport local authenticate
 passport.use(User.createStrategy());
 
-passport.serializeUser(User.serializeUser());
-passport.deserializeUser(User.deserializeUser());
+// passport.serializeUser(User.serializeUser());
+// passport.deserializeUser(User.deserializeUser());
+
+passport.serializeUser((user, done) => {
+  done(null, user.id); //user.id is the id from Mongo
+});
+
+passport.deserializeUser((id, done) => {
+  User.findById(id).then(user => {
+    done(null, user);
+  });
+});
 
 //Using passport google auth20
 passport.use(new GoogleStrategy({
@@ -65,17 +77,30 @@ passport.use(new GoogleStrategy({
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
   callbackURL: "http://localhost:3001/auth/google/oauth2"
 },
-function(accessToken, refreshToken, profile, cb) {
-  User.findOrCreate({ googleId: profile.id }, function (err, user) {
-    return cb(err, user);
-  });
-}
+  async (accessToken, refreshToken, profile, cb) => {
+    console.log(profile);
+    await User.findOrCreate({ googleId: profile.id }, (err, user) => {
+      console.log(user);
+      return cb(err, user);
+    });
+  }
 ));
 
 app.route('/')
   .get((req, res) => {
     res.render("home");
   });
+
+app.route('/auth/google')
+  .get(passport.authenticate('google', { scope: ["profile"] }))
+
+app.route('/auth/google/oauth2')
+  .get(passport.authenticate('google', { failureRedirect: '/login' }),
+     (req, res) => {
+      // Successful authentication, redirect home.
+      res.redirect('/secrets');
+    });
+
 
 app.route('/login')
   .get((req, res) => {
@@ -90,7 +115,7 @@ app.route('/login')
     console.log("login");
     req.login(user, err => {
       if (!err) {
-        passport.authenticate('local', { failureRedirect: '/' }) (req, res, function() {
+        passport.authenticate('local', { failureRedirect: '/' })(req, res, () => {
           res.redirect('/secrets');
         })
       } else {
@@ -146,7 +171,7 @@ app.route('/register')
         // })
         let returnedFunc = passport.authenticate('local', { failureRedirect: '/' });
         // console.log(returnedFunc);
-        returnedFunc(req, res, () =>{
+        returnedFunc(req, res, () => {
           res.redirect('/secrets');
         })
       }
@@ -174,12 +199,12 @@ app.route('/register')
 // })
 
 app.route('/logout')
-  .get( (req, res) => {
-      req.logout(err => {
-        if(!err) {
-          res.redirect('/');
-        }
-      });
+  .get((req, res) => {
+    req.logout(err => {
+      if (!err) {
+        res.redirect('/');
+      }
+    });
   });
 
 
