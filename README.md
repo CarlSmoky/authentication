@@ -1,5 +1,5 @@
 # Authentication
-This is Authentication features with md5, bcrypt, passport, google auth. 
+This is Authentication app with features using md5, bcrypt, passport, google auth. 
 ## Final Product
 
-!["For Desktop"]()
+!["For Desktop"](https://github.com/CarlSmoky/authentication/blob/main/docs/Image.png?raw=true)
