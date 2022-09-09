@@ -44,7 +44,7 @@ const userSchema = new mongoose.Schema({
   secret: String
 });
 
-const secret = process.env.SECRETKEY;
+// const secret = process.env.SECRETKEY;
 
 //Using md5
 // userSchema.plugin(encrypt, { secret, encryptedFields: ['password'] });
@@ -76,7 +76,8 @@ passport.deserializeUser((id, done) => {
 passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: "http://localhost:3001/auth/google/oauth2"
+  callbackURL: "http://localhost:3001/auth/google/oauth2",
+  userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo"
 },
  (accessToken, refreshToken, profile, cb) => {
     console.log(profile);
